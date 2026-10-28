@@ -217,6 +217,9 @@ impl Api {
                 if let Some(o) = ob(p, "onboarded") {
                     c.onboarded = o;
                 }
+                if let Some(m) = ob(p, "manual_updates") {
+                    c.manual_updates = m;
+                }
                 up.save_config(&c)?;
                 ok()
             }
@@ -226,6 +229,11 @@ impl Api {
                 Ok(json!({ "ok": true, "message": setup::install(up, s(p, "agent")?, bin)? }))
             }
             "seed_companion" => Ok(json!({ "ok": true, "created": setup::seed_companion(up)? })),
+            "update_check" => Ok(serde_json::to_value(crate::update::check(&up.paths)?)?),
+            "update_install" => {
+                let version = crate::update::install(&up.paths)?;
+                Ok(json!({ "ok": true, "version": version, "message": format!("UpSkill {version} installed; it takes effect when the app restarts") }))
+            }
             other => bail!("unknown method `{other}`"),
         }
     }
@@ -240,6 +248,7 @@ impl Api {
         Ok(json!({
             "machine": { "id": c.machine_id, "name": c.machine_name, "os": std::env::consts::OS },
             "onboarded": c.onboarded,
+            "version": crate::update::CURRENT,
             "library": up.paths.display(&up.paths.library()),
             "skills": st.skills.values().filter(|m| !m.deleted).count(),
             "archived": st.skills.values().filter(|m| !m.deleted && m.archived).count(),
@@ -356,5 +365,7 @@ pub fn tool_specs() -> Vec<Value> {
         t("add_note", "Leave a note on a skill for the user, e.g. that it misfired or needs work.", json!({ "skill": str_("Skill name"), "text": str_("The note") }), &["skill", "text"]),
         t("list_notes", "List notes, optionally for one skill.", json!({ "skill": str_("Skill name") }), &[]),
         t("resolve_note", "Mark a note resolved.", json!({ "id": str_("Note id") }), &["id"]),
+        t("update_check", "Check whether a newer UpSkill release is available for this machine.", json!({}), &[]),
+        t("update_install", "Download, verify and install the latest UpSkill release on this machine. Takes effect when the app restarts.", json!({}), &[]),
     ]
 }

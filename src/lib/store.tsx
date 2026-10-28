@@ -1,7 +1,7 @@
 // App-wide state: navigation, cached library data and toasts.
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { call, onChanged, type AgentInfo, type Group, type SkillSummary, type Status } from "./api";
+import { call, onChanged, onUpdate, pendingUpdate, type UpdateEvent, type AgentInfo, type Group, type SkillSummary, type Status } from "./api";
 
 export type View = "library" | "insights" | "health" | "agents" | "sync" | "settings";
 
@@ -40,6 +40,10 @@ interface Store {
   /** Run an API call, toast errors, reload after. Returns the result or undefined. */
   run: <T = unknown>(method: string, params?: Record<string, unknown>, success?: string) => Promise<T | undefined>;
 
+  /** Desktop updates: a version installed and waiting for a restart, or one available to install. */
+  update: UpdateEvent;
+  setUpdate: (u: UpdateEvent) => void;
+
   palette: boolean;
   setPalette: (open: boolean) => void;
   newSkill: boolean;
@@ -67,6 +71,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [palette, setPalette] = useState(false);
   const [newSkill, setNewSkill] = useState(false);
+  const [update, setUpdate] = useState<UpdateEvent>({});
   const inflight = useRef<Promise<void> | null>(null);
 
   const toast = useCallback((text: string, tone: "ok" | "error" = "ok") => {
@@ -116,6 +121,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   );
 
   useEffect(() => {
+    pendingUpdate().then((v) => v && setUpdate({ pending: v }), () => {});
+    return onUpdate((e) => {
+      if (e.error) toast(`Update failed: ${e.error}`, "error");
+      else setUpdate(e);
+    });
+  }, [toast]);
+
+  useEffect(() => {
     reload();
     let t: ReturnType<typeof setTimeout> | undefined;
     const off = onChanged(() => {
@@ -149,12 +162,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       reload,
       toast,
       run,
+      update,
+      setUpdate,
       palette,
       setPalette,
       newSkill,
       setNewSkill,
     }),
-    [view, selected, filter, status, skills, groups, agents, loaded, version, reload, toast, run, palette, newSkill],
+    [view, selected, filter, status, skills, groups, agents, loaded, version, reload, toast, run, update, palette, newSkill],
   );
 
   return (

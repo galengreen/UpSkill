@@ -14,3 +14,4 @@ pub mod usage;
 
 pub use api::Api;
 pub use library::Upskill;
+pub mod update;

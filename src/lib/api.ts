@@ -27,7 +27,45 @@ export function onChanged(cb: () => void): () => void {
   };
 }
 
+export interface UpdateEvent {
+  pending?: string;
+  available?: string;
+  error?: string;
+}
+
+/** An installed update waiting for a restart (desktop app only). */
+export async function pendingUpdate(): Promise<string | null> {
+  if (!inTauri) return null;
+  const s = await invoke<{ pending: string | null }>("update_state");
+  return s.pending;
+}
+
+export function restartApp(): Promise<void> {
+  return invoke("restart_app");
+}
+
+export function onUpdate(cb: (e: UpdateEvent) => void): () => void {
+  if (!inTauri) return () => {};
+  let unlisten: (() => void) | undefined;
+  let cancelled = false;
+  listen<UpdateEvent>("upskill://update", (e) => cb(e.payload)).then((u) => (cancelled ? u() : (unlisten = u)));
+  return () => {
+    cancelled = true;
+    unlisten?.();
+  };
+}
+
 // ----------------------------------------------------------------- types
+
+export interface UpdateCheck {
+  current: string;
+  latest: string;
+  available: boolean;
+  notes: string;
+  date: string;
+  pending: string | null;
+  blocked: string | null;
+}
 
 export type Severity = "error" | "warn" | "info";
 export type SkillKind = "managed" | "unmanaged" | "link" | "system" | "plugin" | "builtin";
@@ -192,6 +230,7 @@ export interface AgentInfo {
 export interface Status {
   machine: { id: string; name: string; os: string };
   onboarded: boolean;
+  version: string;
   library: string;
   skills: number;
   archived: number;
@@ -276,6 +315,7 @@ export interface Config {
   dark_days: number;
   auto_sync_minutes: number;
   onboarded: boolean;
+  manual_updates: boolean;
 }
 
 export interface EventEntry {

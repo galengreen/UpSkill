@@ -1,0 +1,89 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14
+            platform: darwin-aarch64
+            build: --bundles app
+          - os: ubuntu-22.04
+            platform: linux-x86_64
+            build: --no-bundle
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Tag matches version
+        run: grep -q "^version = \"${GITHUB_REF_NAME#v}\"" Cargo.toml
+
+      - name: Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev libssl-dev build-essential file
+
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - uses: oven-sh/setup-bun@v2
+
+      - run: bun install --frozen-lockfile
+      - run: bash scripts/build-sidecar.sh
+      - run: bunx tauri build ${{ matrix.build }}
+
+      - name: Package and sign
+        run: bash scripts/package.sh ${{ matrix.platform }}
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.platform }}
+          path: release/*
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: release
+          merge-multiple: true
+
+      - name: Update manifest
+        run: |
+          python3 - <<'EOF'
+          import datetime, glob, json, os
+          tag = os.environ["GITHUB_REF_NAME"]
+          base = f"https://github.com/{os.environ['GITHUB_REPOSITORY']}/releases/download/{tag}"
+          platforms = {}
+          for sig in sorted(glob.glob("release/UpSkill-*.tar.gz.sig")):
+              name = os.path.basename(sig)[: -len(".sig")]
+              platform = name[len("UpSkill-") : -len(".tar.gz")]
+              platforms[platform] = {"url": f"{base}/{name}", "signature": open(sig).read().strip()}
+          manifest = {
+              "version": tag.lstrip("v"),
+              "notes": "",
+              "pub_date": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
+              "platforms": platforms,
+          }
+          json.dump(manifest, open("release/latest.json", "w"), indent=2)
+          print(json.dumps(manifest, indent=2))
+          EOF
+          cp scripts/install.sh release/
+
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" release/* --title "UpSkill ${GITHUB_REF_NAME#v}" --generate-notes

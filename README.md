@@ -22,6 +22,18 @@ Claude Code, Codex, Amp, Cursor, Gemini CLI, OpenCode, Copilot CLI, Factory Droi
 - **Sync without git chores.** Sync goes through any shared folder (Syncthing, Dropbox, iCloud, a NAS) or a private GitHub repo, with git kept out of sight. Each machine writes only its own manifest plus immutable objects, so the transport never sees a conflict. Concurrent edits to one skill merge deterministically: the newest wins and the other stays in history. Usage from every machine is combined.
 - **MCP for agents.** 36 tools cover everything the app can do. A companion `upskill` skill teaches agents to use them and to leave **notes** when a skill misfires.
 - **Tray / menu bar.** Shows status and has Sync now and Rescan. Closing the window keeps UpSkill running.
+- **Updates itself.** Releases are signed. UpSkill checks every six hours, installs in the background and applies the update on the next start, or straight away if its window is closed. Paths never change, so MCP registrations keep working.
+
+## Install
+
+```sh
+curl -fsSL https://github.com/galengreen/UpSkill/releases/latest/download/install.sh | sh
+```
+
+- macOS (Apple Silicon) installs to `/Applications/UpSkill.app`.
+- Linux (x86_64) installs to `~/.local/bin`, with a launcher entry; it needs no sudo.
+
+The app isn't notarised. Installing with `curl` avoids Gatekeeper's "damaged app" warning, which a browser download would trigger.
 
 ## Layout
 
@@ -56,22 +68,39 @@ bunx vite --port 1420
 bun run bundle         # → target/release/bundle/macos/UpSkill.app (+ dmg)
 ```
 
+Builds from `target/` never update themselves; update them with `git pull` and a rebuild.
+
 ### Omarchy (Arch + Hyprland)
 
-```sh
-sudo pacman -S --needed webkit2gtk-4.1 libayatana-appindicator gtk3 base-devel
-bun install && bun run bundle     # → AppImage / deb in target/release/bundle
+The release needs `webkit2gtk-4.1` and `libayatana-appindicator`, which Omarchy ships with. To build from source, run `bun run sidecar && bunx tauri build --no-bundle`.
+
+Hyprland tiles new windows. To float UpSkill and start it with the session, add these lines.
+
+In `~/.config/hypr/hyprland.lua`:
+
+```lua
+o.window("upskill-app", { float = true, center = true, size = { 1240, 800 } })
 ```
 
-Hyprland tiles new windows and Waybar must be up before the tray registers. In `~/.config/hypr/hyprland.conf`:
+In `~/.config/hypr/autostart.lua`:
 
-```
-exec-once = sleep 2 && ~/Applications/UpSkill.AppImage
-windowrulev2 = float, class:^(upskill-app)$
-windowrulev2 = size 1240 800, class:^(upskill-app)$
+```lua
+o.launch_on_start(os.getenv("HOME") .. "/.local/bin/upskill-app")
 ```
 
 On Linux the tray opens a menu rather than handling clicks (a Tauri limitation), so "Open UpSkill" is the first item.
+
+## Releasing
+
+```sh
+scripts/release.sh 0.3.0
+```
+
+This bumps the version, tags it and pushes. GitHub Actions then builds macOS (arm64) and Linux (x86_64), signs both archives with the updater key, and publishes them with a `latest.json` manifest.
+
+- **Signing key:** the private key lives in `~/.tauri/upskill-updater.key` and in the `TAURI_SIGNING_PRIVATE_KEY` repo secret.
+- **Public key:** compiled into `crates/core/src/update.rs`.
+- **Don't lose the private key.** Without it, installed copies can't verify future updates.
 
 ## MCP
 
@@ -87,6 +116,6 @@ In the bundled app the binary is `UpSkill.app/Contents/MacOS/upskill`.
 ## CLI
 
 ```
-upskill status | list | health | adopt-all | deploy | sync | ingest
+upskill status | list | health | adopt-all | deploy | sync | ingest | update
 upskill call <method> '<json>'      # any API method, e.g. call get_skill '{"name":"commit"}'
 ```

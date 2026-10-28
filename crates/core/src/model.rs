@@ -107,6 +107,8 @@ pub struct Config {
     pub last_sync: Option<i64>,
     pub last_sync_error: Option<String>,
     pub onboarded: bool,
+    /// Off by default: UpSkill installs updates itself. When on, it only tells you.
+    pub manual_updates: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]

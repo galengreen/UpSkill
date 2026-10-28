@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { Activity, Boxes, ChevronsUp, Cog, HeartPulse, Library as LibraryIcon, Plus, RefreshCw, Search } from "lucide-react";
+import { Activity, ArrowUpCircle, Boxes, ChevronsUp, Cog, HeartPulse, Library as LibraryIcon, Plus, RefreshCw, Search } from "lucide-react";
 import { StoreProvider, useStore, type View } from "./lib/store";
 import { ago, Kbd } from "./components/ui";
+import { restartApp } from "./lib/api";
 import { Library } from "./views/Library";
 import { Insights } from "./views/Insights";
 import { Health } from "./views/Health";
@@ -145,6 +146,25 @@ function Sidebar() {
         </nav>
       </div>
 
+      {s.update.pending ? (
+        <button className="update-pill" onClick={() => restartApp()} title="The new version is installed">
+          <ArrowUpCircle size={14} />
+          <span className="grow">Restart to update</span>
+          <span className="mono">{s.update.pending}</span>
+        </button>
+      ) : s.update.available ? (
+        <button
+          className="update-pill"
+          onClick={async () => {
+            const out = await s.run<{ version: string }>("update_install", {});
+            if (out) s.setUpdate({ pending: out.version });
+          }}
+        >
+          <ArrowUpCircle size={14} />
+          <span className="grow">Install update</span>
+          <span className="mono">{s.update.available}</span>
+        </button>
+      ) : null}
       <div className="sidebar-foot">
         <span className="dot" style={{ background: sync?.error ? "var(--error)" : sync?.kind ? "var(--accent)" : "var(--text-4)" }} />
         <span className="ellipsis grow" title={sync?.error ?? undefined}>

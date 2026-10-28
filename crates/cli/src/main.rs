@@ -16,6 +16,7 @@ USAGE
   upskill deploy                 Re-place skills into agent folders
   upskill sync                   Sync with other machines
   upskill ingest                 Read agent logs for usage
+  upskill update                 Install the latest release
   upskill call <method> [json]   Call any API method directly
 ";
 
@@ -58,6 +59,20 @@ fn run() -> Result<()> {
             Ok(())
         }
         "health" => shortcut("health"),
+        "update" => {
+            let api = api("you")?;
+            let check = api.call("update_check", &json!({}))?;
+            if check["available"] != true {
+                println!("UpSkill {} is up to date", check["current"].as_str().unwrap_or(""));
+                return Ok(());
+            }
+            print(&api.call("update_install", &json!({}))?);
+            Ok(())
+        }
+        "--version" | "-V" | "version" => {
+            println!("upskill {}", upskill_core::update::CURRENT);
+            Ok(())
+        }
         "adopt-all" => shortcut("adopt_all"),
         "deploy" => shortcut("deploy"),
         "sync" => shortcut("sync_now"),

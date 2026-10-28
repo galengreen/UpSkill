@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import { Check, ChevronsUp, Copy, Plug, Sparkles } from "lucide-react";
+import { ArrowUpCircle, Check, ChevronsUp, Copy, Plug, RefreshCw, Sparkles } from "lucide-react";
 import "./pages.css";
-import type { Config, EventEntry } from "../lib/api";
+import { call, inTauri, restartApp, type Config, type EventEntry, type UpdateCheck } from "../lib/api";
 import { useStore } from "../lib/store";
 import { AgentChip, ago, agentName, Segmented } from "../components/ui";
 import { useApi } from "./pages/useApi";
@@ -12,7 +12,7 @@ interface McpStatus {
 }
 
 export function Settings() {
-  const { run, status, agents, skills, toast } = useStore();
+  const { run, status, agents, skills, toast, update, setUpdate } = useStore();
   const cfg = useApi<Config>("settings_get");
   const mcp = useApi<McpStatus>("mcp_status");
   const events = useApi<EventEntry[]>("events", { limit: 30 });
@@ -99,6 +99,14 @@ export function Settings() {
           ))}
         </Section>
 
+        <Updates
+          version={status?.version}
+          manual={c?.manual_updates ?? false}
+          pending={update.pending}
+          onMode={(manual) => set({ manual_updates: manual }, manual ? "UpSkill will ask before updating" : "UpSkill will update itself")}
+          onInstalled={(v) => setUpdate({ pending: v })}
+        />
+
         <Section title="Agent access (MCP)" sub="Let agents create, edit, organise and sync skills through UpSkill. Every change they make is versioned and attributed to them.">
           {(mcp.data?.targets ?? []).map((t) => {
             const installed = agents.find((a) => a.id === t.agent)?.installed;
@@ -177,7 +185,7 @@ export function Settings() {
               <ChevronsUp size={20} strokeWidth={2.6} />
             </span>
             <div>
-              <div style={{ fontWeight: 600 }}>UpSkill 0.1</div>
+              <div style={{ fontWeight: 600 }}>UpSkill {status?.version}</div>
               <div className="faint" style={{ fontSize: 12 }}>
                 One library for every agent's skills, on every machine. Machine ID <span className="mono selectable">{c?.machine_id}</span>
               </div>
@@ -188,6 +196,80 @@ export function Settings() {
     </div>
   );
 }
+
+function Updates({ version, manual, pending, onMode, onInstalled }: { version?: string; manual: boolean; pending?: string; onMode: (manual: boolean) => void; onInstalled: (v: string) => void }) {
+  const { run, toast } = useStore();
+  const [check, setCheck] = useState<UpdateCheck | null>(null);
+  const [busy, setBusy] = useState<"check" | "install" | null>(null);
+
+  const checkNow = async () => {
+    setBusy("check");
+    try {
+      setCheck(await call<UpdateCheck>("update_check"));
+    } catch (e) {
+      toast(String(e).replace(/^Error:\s*/, ""), "error");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const install = async () => {
+    setBusy("install");
+    const out = await run<{ version: string }>("update_install", {});
+    setBusy(null);
+    if (out) onInstalled(out.version);
+  };
+
+  let state: React.ReactNode;
+  if (pending) {
+    state = inTauri ? (
+      <button className="btn primary sm" onClick={() => restartApp()}>
+        <ArrowUpCircle size={13} /> Restart to update to {pending}
+      </button>
+    ) : (
+      <span className="faint">{pending} installed, restart to finish</span>
+    );
+  } else if (check?.available && !check.blocked) {
+    state = (
+      <button className="btn primary sm" disabled={busy !== null} onClick={install}>
+        <ArrowUpCircle size={13} /> {busy === "install" ? "Installing…" : `Install ${check.latest}`}
+      </button>
+    );
+  } else {
+    state = (
+      <div className="row">
+        {check && (
+          <span className="faint" title={check.blocked ?? undefined}>
+            {check.available ? `${check.latest} available` : "Up to date"}
+          </span>
+        )}
+        <button className="btn sm" disabled={busy !== null} onClick={checkNow}>
+          <RefreshCw size={13} className={busy === "check" ? "spin" : undefined} /> Check now
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <Section title="Updates">
+      <Row label={`Version ${version ?? ""}`} hint={check?.blocked ? sentence(check.blocked) : "Releases are signed; UpSkill checks every six hours."}>
+        {state}
+      </Row>
+      <Row label="When an update lands" hint="Installed in the background and applied next time UpSkill starts, or straight away if its window is closed.">
+        <Segmented<string>
+          value={manual ? "ask" : "auto"}
+          onChange={(v) => onMode(v === "ask")}
+          options={[
+            { value: "auto", label: "Install automatically" },
+            { value: "ask", label: "Ask me" },
+          ]}
+        />
+      </Row>
+    </Section>
+  );
+}
+
+const sentence = (s: string) => s.charAt(0).toUpperCase() + s.slice(1) + (/[.!?]$/.test(s) ? "" : ".");
 
 function agentDefault(id: string): number | undefined {
   return { claude: 8000, codex: 8000 }[id];
