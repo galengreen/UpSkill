@@ -76,7 +76,7 @@ fn search_dirs(paths: &Paths) -> Vec<PathBuf> {
     let mut dirs: Vec<PathBuf> = std::env::var_os("PATH")
         .map(|p| std::env::split_paths(&p).collect())
         .unwrap_or_default();
-    for extra in [".local/bin", ".claude/local", ".bun/bin", ".cargo/bin", ".npm-global/bin", ".volta/bin", ".amp/bin", ".opencode/bin"] {
+    for extra in [".local/bin", ".claude/local", ".bun/bin", ".cargo/bin", ".npm-global/bin", ".volta/bin", ".amp/bin", ".opencode/bin", ".local/share/mise/shims", ".asdf/shims"] {
         dirs.push(paths.home.join(extra));
     }
     for d in ["/opt/homebrew/bin", "/usr/local/bin", "/usr/bin", "/bin"] {

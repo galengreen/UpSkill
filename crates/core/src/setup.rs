@@ -69,7 +69,22 @@ pub fn install(up: &Upskill, agent: &str, bin: &str) -> Result<String> {
             let path = up.paths.home.join(".codex/config.toml");
             let text = fs::read_to_string(&path).unwrap_or_default();
             if text.contains("[mcp_servers.upskill]") {
-                return Ok("Already in ~/.codex/config.toml".into());
+                // Repoint the existing entry (the app may have moved) without touching the rest.
+                let mut inside = false;
+                let lines: Vec<String> = text
+                    .lines()
+                    .map(|l| {
+                        let t = l.trim_start();
+                        if t.starts_with('[') {
+                            inside = t.starts_with("[mcp_servers.upskill]");
+                        } else if inside && t.starts_with("command") && t[7..].trim_start().starts_with('=') {
+                            return format!("command = {}", toml_str(bin));
+                        }
+                        l.to_string()
+                    })
+                    .collect();
+                crate::store::write_atomic(&path, format!("{}\n", lines.join("\n")).as_bytes())?;
+                return Ok("Updated ~/.codex/config.toml".into());
             }
             let block = format!("\n[mcp_servers.upskill]\ncommand = {}\nargs = [\"mcp\"]\n", toml_str(bin));
             crate::store::write_atomic(&path, format!("{}{block}", text.trim_end()).as_bytes())?;
