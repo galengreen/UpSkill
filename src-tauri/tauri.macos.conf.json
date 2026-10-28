@@ -1,0 +1,19 @@
+{
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "UpSkill",
+        "width": 1240,
+        "height": 800,
+        "minWidth": 920,
+        "minHeight": 600,
+        "backgroundColor": "#0a0a0c",
+        "center": true,
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true,
+        "trafficLightPosition": { "x": 18, "y": 22 }
+      }
+    ]
+  }
+}

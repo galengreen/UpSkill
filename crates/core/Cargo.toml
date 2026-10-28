@@ -1,0 +1,21 @@
+[package]
+name = "upskill-core"
+version.workspace = true
+edition.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+serde_yaml = "0.9"
+sha2 = "0.10"
+hex = "0.4"
+walkdir = "2"
+regex = "1"
+dirs = "6"
+rusqlite = { version = "0.37", features = ["bundled"] }
+fs4 = { version = "0.13", features = ["sync"] }
+similar = "2"
+gethostname = "1"
+uuid = { version = "1", features = ["v4"] }
+chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }

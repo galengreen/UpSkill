@@ -1,0 +1,13 @@
+[package]
+name = "upskill-cli"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "upskill"
+path = "src/main.rs"
+
+[dependencies]
+anyhow.workspace = true
+serde_json.workspace = true
+upskill-core.workspace = true

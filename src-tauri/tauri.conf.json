@@ -1,0 +1,36 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "UpSkill",
+  "version": "0.1.0",
+  "identifier": "com.galengreen.upskill",
+  "build": {
+    "beforeDevCommand": "bun run dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "bun run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "UpSkill",
+        "width": 1240,
+        "height": 800,
+        "minWidth": 920,
+        "minHeight": 600,
+        "backgroundColor": "#0a0a0c",
+        "center": true
+      }
+    ],
+    "security": { "csp": null }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["app", "dmg", "appimage", "deb"],
+    "category": "DeveloperTool",
+    "shortDescription": "One library for every agent's skills",
+    "externalBin": ["binaries/upskill"],
+    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.png"],
+    "linux": { "deb": { "depends": ["libayatana-appindicator3-1", "libwebkit2gtk-4.1-0"] } }
+  }
+}
