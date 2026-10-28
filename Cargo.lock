@@ -3926,7 +3926,7 @@ checksum = "673aac59facbab8a9007c7f6108d11f63b603f7cabff99fabf650fea5c32b861"
 
 [[package]]
 name = "upskill-app"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "notify",
@@ -3940,7 +3940,7 @@ dependencies = [
 
 [[package]]
 name = "upskill-cli"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "serde_json",
@@ -3949,7 +3949,7 @@ dependencies = [
 
 [[package]]
 name = "upskill-core"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "base64 0.22.1",
